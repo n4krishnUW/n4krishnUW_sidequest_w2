@@ -34,6 +34,6 @@ N/A
 
 ## GenAI
 
-The code was written by Dr. Karen Cochrane but I used GenAI to redesign the blobs movement to express sleepiness.
+The code was written by Dr. Karen Cochrane but I used GenAI to redesign the blobs movement to express excitement.
 
 ---

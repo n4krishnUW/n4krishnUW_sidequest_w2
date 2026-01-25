@@ -63,10 +63,12 @@ function setup() {
 }
 
 function draw() {
-  background(240);
+  // Background: yellow-orange to represent excitement and energy
+  background(255, 200, 0);
 
   // --- Draw all platforms ---
-  fill(200);
+  // Yellow platforms to represent excitement and playfulness
+  fill(255, 255, 0);
   for (const p of platforms) {
     rect(p.x, p.y, p.w, p.h);
   }
@@ -94,20 +96,8 @@ function draw() {
     h: blob3.r * 2,
   };
 
-  // --- STEP 1: Move horizontally, then resolve X collisions ---
+  // --- STEP 1: Move horizontally (no collision) ---
   box.x += blob3.vx;
-  for (const s of platforms) {
-    if (overlap(box, s)) {
-      if (blob3.vx > 0) {
-        // Moving right → hit the left side of a platform
-        box.x = s.x - box.w;
-      } else if (blob3.vx < 0) {
-        // Moving left → hit the right side of a platform
-        box.x = s.x + s.w;
-      }
-      blob3.vx = 0;
-    }
-  }
 
   // --- STEP 2: Move vertically, then resolve Y collisions ---
   box.y += blob3.vy;
@@ -117,13 +107,13 @@ function draw() {
     if (overlap(box, s)) {
       if (blob3.vy > 0) {
         // Falling → land on top of a platform
-        box.y = s.y - box.h;
+        // Calculate actual bottom radius of the blob (accounting for droop)
+        // Bottom radius = base radius + droop + gravity + wave effects
+        const maxBottomRadius =
+          blob3.r + blob3.wobble * 4 + blob3.wobble * 1.5 + blob3.wobble * 1.2;
+        box.y = s.y - maxBottomRadius * 2;
         blob3.vy = 0;
         blob3.onGround = true;
-      } else if (blob3.vy < 0) {
-        // Rising → hit the underside of a platform
-        box.y = s.y + s.h;
-        blob3.vy = 0;
       }
     }
   }
@@ -152,27 +142,51 @@ function overlap(a, b) {
   );
 }
 
-// Draws the blob using Perlin noise for a soft, breathing effect
+// Draws the blob using Perlin noise for a droopy, melting effect
 function drawBlobCircle(b) {
-  fill(20, 120, 255);
+  push();
+
+  // Draw blob with soft edges using blur
+  drawingContext.filter = "blur(2px)";
+
+  fill(255, 0, 0);
   beginShape();
+
+  // Dripping effect: rapid oscillating vertical stretch for panic effect (constrained)
+  const drip = sin(b.t * 0.35 + 0.5) * 0.08;
 
   for (let i = 0; i < b.points; i++) {
     const a = (i / b.points) * TAU;
 
-    // Noise-based radius offset
-    const n = noise(
-      cos(a) * b.wobbleFreq + 100,
-      sin(a) * b.wobbleFreq + 100,
-      b.t,
-    );
+    // Droop effect: tapered like a Hershey's kiss - narrow at top, wide at bottom
+    // Sides stay fuller with cosine wave
+    const droopFactor = pow(max(0, sin(a)), 0.7) + abs(cos(a)) * 0.6;
 
-    const r = b.r + map(n, 0, 1, -b.wobble, b.wobble);
+    // Perlin noise for melting motion (pulls downward)
+    const n = noise(cos(a) * 0.5 + 100, sin(a) * 0.5 + 100, b.t);
+    const waveAmount = map(n, 0, 1, -b.wobble * 1.2, b.wobble * 1.2);
+
+    // Add gravitational pull downward based on vertical position
+    const gravityPull = pow(max(0, sin(a)), 0.8) * b.wobble * 1.5;
+
+    // Alpha channel manipulation: darker/more opaque at bottom, softer at top
+    const alpha = map(sin(a), -1, 1, 150, 255);
+
+    let r = b.r + droopFactor * b.wobble * 4 + waveAmount + gravityPull;
+
+    // Apply stretch only upward (compress at bottom, expand at top)
+    const stretchFactor = (1 - sin(a)) * drip;
+    r += stretchFactor * b.wobble;
 
     vertex(b.x + cos(a) * r, b.y + sin(a) * r);
   }
 
   endShape(CLOSE);
+
+  // Reset filter
+  drawingContext.filter = "none";
+
+  pop();
 }
 
 // Jump input (only allowed when grounded)
